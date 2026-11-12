@@ -1,28 +1,19 @@
 {
-  "name": "cpp-struct-template",
-  "displayName": "cpp-struct-template",
-  "description": "Плагин для генерации кода C++26",
+  "name": "geo-calc",
+  "displayName": "Geo Calc",
+  "description": "Автоматически считает площадь, периметр и выражения прямо в редакторе",
   "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.60.0"
-  },
-  "activationEvents":[
-    "onCommand:cpp-struct-template.generateMinHeap"
-  ],
-  "categories": [
-    "Other"
-  ],
+  "engines": { "vscode": "^1.85.0" },
+  "activationEvents": ["onStartupFinished"],
+  "categories": ["Other"],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
-      {
-        "command": "cpp-struct-template.generateMinHeap",
-        "title": "Generate C++ Min-Heap Template"
-      }
+      { "command": "geoCalc.evaluate", "title": "Geo Calc: Вписать результат" },
+      { "command": "geoCalc.toggleAuto", "title": "Geo Calc: Вкл/выкл подсказки" }
     ],
     "keybindings": [
-      {
-        "command": "cpp-struct-template.generateMinHeap",
+      { "command": "geoCalc.evaluate",
         "key": "ctrl+shift+h",
         "mac": "cmd+shift+h",
         "when": "editorTextFocus"

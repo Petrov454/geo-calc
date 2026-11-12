@@ -1,59 +1,74 @@
 import * as vscode from 'vscode';
+import { evaluateLine } from './calc';
+
+const deco = vscode.window.createTextEditorDecorationType({});
+let auto = true;
+
+function commentPrefix(lang: string): string {
+  if (['python', 'shellscript', 'yaml', 'ruby'].includes(lang)) { return '  # '; }
+  if (['plaintext', 'markdown'].includes(lang)) { return ' '; }
+  return '  // ';
+}
+
+function refresh(editor?: vscode.TextEditor) {
+  if (!editor) { return; }
+  const opts: vscode.DecorationOptions[] = [];
+  if (auto) {
+    const max = Math.min(editor.document.lineCount, 5000);
+    for (let i = 0; i < max; i++) {
+      const line = editor.document.lineAt(i);
+      const r = evaluateLine(line.text);
+      if (r) {
+        opts.push({
+          range: line.range,
+          renderOptions: { after: {
+            contentText: `  → ${r.value}  (${r.description})`,
+            color: new vscode.ThemeColor('editorCodeLens.foreground'),
+            fontStyle: 'italic'
+          } }
+        });
+      }
+    }
+  }
+  editor.setDecorations(deco, opts);
+}
 
 export function activate(context: vscode.ExtensionContext) {
-    let disposable = vscode.commands.registerCommand('cpp-struct-template.generateMinHeap', () => {
-        const editor = vscode.window.activeTextEditor;
-        
-        if (editor) {
-            // Каркас низкоуровневой кучи для C++26
-            const heapTemplate = `template <typename T>
-class MinHeap {
-private:
-    T* data;
-    size_t capacity;
-    size_t current_size;
+  let timer: NodeJS.Timeout | undefined;
+  const schedule = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => refresh(vscode.window.activeTextEditor), 200);
+  };
 
-    void heapify_up(size_t index) {
-        while (index > 0 && data[(index - 1) / 2] > data[index]) {
-            T temp = data[(index - 1) / 2];
-            data[(index - 1) / 2] = data[index];
-            data[index] = temp;
-            index = (index - 1) / 2;
+  context.subscriptions.push(
+    vscode.commands.registerCommand('geoCalc.evaluate', async () => {
+      const ed = vscode.window.activeTextEditor;
+      if (!ed) { return; }
+      const line = ed.document.lineAt(ed.selection.active.line);
+      const r = evaluateLine(line.text);
+      if (!r) {
+        vscode.window.showWarningMessage('Geo Calc: не удалось распознать выражение');
+        return;
+      }
+      const m = line.text.match(/\s*=\s*\?\s*$/);
+      await ed.edit(b => {
+        if (m) {
+          const start = line.text.length - m[0].length;
+          b.replace(new vscode.Range(line.lineNumber, start, line.lineNumber, line.text.length), ` = ${r.value}`);
+        } else {
+          b.insert(line.range.end, `${commentPrefix(ed.document.languageId)}= ${r.value}`);
         }
-    }
-
-public:
-    MinHeap(size_t cap) : capacity(cap), current_size(0) {
-        data = new T[capacity];
-    }
-
-    ~MinHeap() {
-        delete[] data;
-    }
-
-    void push(const T& value) {
-        if (current_size == capacity) {
-            return; 
-        }
-        data[current_size] = value;
-        heapify_up(current_size);
-        current_size++;
-    }
-
-    T get_min() const {
-        return data[0];
-    }
-};
-`;
-            
-            editor.edit(editBuilder => {
-                editBuilder.insert(editor.selection.active, heapTemplate);
-            });
-            vscode.window.showInformationMessage('Min-Heap C++26 шаблон успешно сгенерирован!');
-        }
-    });
-
-    context.subscriptions.push(disposable);
+      });
+    }),
+    vscode.commands.registerCommand('geoCalc.toggleAuto', () => {
+      auto = !auto;
+      refresh(vscode.window.activeTextEditor);
+    }),
+    vscode.window.onDidChangeActiveTextEditor(e => refresh(e)),
+    vscode.workspace.onDidChangeTextDocument(schedule),
+    deco
+  );
+  refresh(vscode.window.activeTextEditor);
 }
 
 export function deactivate() {}
